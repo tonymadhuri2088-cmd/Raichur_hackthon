@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Call the Helpline - Raichur Grievance Tracker</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0f2a52">
+<link rel="icon" type="image/png" href="/assets/icon-192.png">
+<link rel="stylesheet" href="/assets/portal.css">
+<style>
+  .call-card .form-body { display: block; }
+  .call-status { display: flex; align-items: center; gap: 12px; margin: 0 0 14px; font-weight: 600; color: var(--navy); }
+  .call-dot { width: 14px; height: 14px; border-radius: 50%; background: #9aa8ba; flex: none; }
+  .call-dot.live { background: #1a8a4a; box-shadow: 0 0 0 6px rgba(26, 138, 74, .18); }
+  .call-dot.listening { background: #c0392b; box-shadow: 0 0 0 6px rgba(192, 57, 43, .18); }
+  .call-log { border: 1px solid var(--line); border-radius: 10px; min-height: 220px; max-height: 420px; overflow-y: auto; padding: 12px 14px; background: #fbfdff; }
+  .call-log p { margin: 0 0 10px; line-height: 1.45; }
+  .call-log .who { display: block; font-size: 12.5px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; color: var(--muted); }
+  .call-log .ai .text { color: var(--navy); }
+  .call-log .me .text { color: #14532d; }
+  .call-controls { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px; align-items: center; }
+  .call-type { display: flex; gap: 10px; margin-top: 14px; }
+  .call-type input { flex: 1; min-width: 0; }
+  .call-note { font-size: 13.5px; color: var(--label); margin-top: 14px; }
+  .call-grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 20px; align-items: start; }
+  @media (max-width: 880px) { .call-grid { grid-template-columns: minmax(0, 1fr); } }
+  .answer-card .form-body { display: block; }
+  .answer-empty { color: var(--label); line-height: 1.5; margin: 0; }
+  .answer-block { margin: 0 0 16px; }
+  .answer-block .k { display: block; font-size: 12.5px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; color: var(--muted); margin-bottom: 3px; }
+  .answer-block .v { display: block; line-height: 1.45; color: var(--navy); overflow-wrap: anywhere; }
+  .answer-block .v.quote { background: #fbfdff; border-left: 4px solid #9aa8ba; padding: 8px 12px; border-radius: 0 8px 8px 0; color: #14532d; }
+  .answer-days { background: #eaf6ee; border: 1px solid #b7dfc3; border-radius: 12px; padding: 14px 16px; margin: 0 0 16px; }
+  .answer-days .big { display: block; font-size: 24px; font-weight: 800; color: #14532d; line-height: 1.2; }
+  .answer-days .sub { display: block; margin-top: 4px; color: #14532d; }
+  .answer-id { font-size: 18px; font-weight: 800; letter-spacing: .02em; }
+  .answer-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 4px; }
+</style>
+</head>
+<body>
+<!-- Call the Helpline: talk to the AI assistant. The browser listens and speaks; the server does the same steps as WhatsApp. -->
+<header class="topbar">
+  <div class="container">
+    <a class="brand" href="/home">
+      <span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#drop"/></svg></span>
+      <span><span class="brand-name">Raichur Grievance Tracker</span><span class="brand-tag">Follow-up and reminders for citizen grievances</span></span>
+    </a>
+    <nav class="topnav" aria-label="Main">
+      <a href="/home">Home</a>
+      <a href="/register">Register Complaint</a>
+      <a href="/track">Track Complaint</a>
+      <a href="/call" class="active" aria-current="page">Call Helpline</a>
+    </nav>
+    <div class="top-right">
+      <div class="account" id="accountArea" hidden>
+        <button type="button" class="avatar" id="accountButton" aria-haspopup="true" aria-expanded="false" aria-label="Your account"></button>
+        <div class="account-panel" id="accountPanel" hidden>
+          <h3>Your details</h3>
+          <dl id="accountDetails"></dl>
+          <button type="button" class="btn outline block" id="logoutButton"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#log-out"/></svg>Log out</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="hero compact">
+  <svg class="hero-skyline" aria-hidden="true"><use href="/assets/icons.svg#skyline"/></svg>
+  <div class="container">
+    <h1>Call the <span class="sky">Helpline</span></h1>
+    <p class="lead">Talk to the AI assistant. Say your problem, and it registers the complaint and reads back the complaint ID.</p>
+  </div>
+</section>
+
+<main class="container call-grid">
+  <section class="form-card call-card">
+    <div class="form-head">
+      <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#search"/></svg>
+      <div>
+        <h2>AI helpline</h2>
+        <p>An AI assistant, not a government officer. Student demo with invented data.</p>
+      </div>
+    </div>
+    <div class="form-body">
+      <div class="call-status"><span class="call-dot" id="dot"></span><span id="state">Not on a call</span></div>
+      <div class="call-log" id="log" aria-live="polite"></div>
+      <div class="call-controls">
+        <button type="button" class="btn" id="startButton">Start call</button>
+        <button type="button" class="btn danger" id="endButton" hidden>End call</button>
+        <button type="button" class="btn outline" id="micButton" hidden>Speak now</button>
+        <button type="button" class="btn outline" id="repeatButton" hidden>Hear that again</button>
+      </div>
+      <form class="call-type" id="typeForm" hidden>
+        <input id="typed" type="text" maxlength="600" autocomplete="off" placeholder="Type what you would say" aria-label="Type what you would say">
+        <button type="submit" class="btn outline">Send</button>
+      </form>
+      <p class="call-note" id="note"></p>
+      <p id="error" class="hero-error" role="alert" hidden></p>
+    </div>
+    <p class="form-foot">Speech is turned into text by your browser (Chrome or Edge work best). English works best. Kannada is available, but Kannada speech recognition is less reliable, so you can always type instead.</p>
+  </section>
+
+  <aside class="form-card answer-card" aria-labelledby="answerTitle">
+    <div class="form-head">
+      <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#search"/></svg>
+      <div>
+        <h2 id="answerTitle">My complaint and the answer</h2>
+        <p>What you told the assistant, and what it will do.</p>
+      </div>
+    </div>
+    <div class="form-body" id="answer" aria-live="polite">
+      <p class="answer-empty" id="answerEmpty">Nothing yet. Start the call and tell the assistant your problem. Your complaint, its ID, and how many days it should take will show here, and the assistant will say them out loud.</p>
+    </div>
+  </aside>
+</main>
+
+<script src="/assets/portal.js"></script>
+<script src="/assets/i18n.js"></script>
+<script>
+(function () {
+  "use strict";
+  const $ = Portal.$;
+  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const synth = window.speechSynthesis;
+  let info = { language: "en-IN", phone: "" };
+  let callId = "";
+  let active = false;
+  let listening = null;
+  let lastLang = "en";
+  let lastSaid = [];          // what the assistant said last, for "Hear that again"
+  const emptyNote = $("answerEmpty");   // kept, because the panel is cleared when a complaint is shown
+
+  function setState(text, dot) {
+    $("state").textContent = text;
+    $("dot").className = "call-dot" + (dot ? " " + dot : "");
+  }
+
+  function addLine(who, text) {
+    const line = document.createElement("p");
+    line.className = who === "AI" ? "ai" : "me";
+    const label = document.createElement("span");
+    label.className = "who";
+    label.textContent = who === "AI" ? "Assistant" : "You";
+    const body = document.createElement("span");
+    body.className = "text";
+    body.textContent = text;
+    line.append(label, body);
+    $("log").append(line);
+    $("log").scrollTop = $("log").scrollHeight;
+  }
+
+  function block(label, value, extra) {
+    const wrap = document.createElement("div");
+    wrap.className = "answer-block";
+    const k = document.createElement("span");
+    k.className = "k";
+    k.textContent = label;
+    const v = document.createElement("span");
+    v.className = "v" + (extra ? " " + extra : "");
+    v.textContent = value;
+    wrap.append(k, v);
+    return wrap;
+  }
+
+  function showComplaint(c) {
+    const box = $("answer");
+    box.replaceChildren();
+    box.append(block(c.kind === "track" ? "Complaint you asked about" : "Your complaint", c.problem || "(no description)", "quote"));
+    box.append(block(c.kind === "track" ? "Complaint ID" : "Complaint registered. ID", c.id, "answer-id"));
+    if (c.days !== null && c.days !== undefined && c.due) {
+      const when = document.createElement("div");
+      when.className = "answer-days";
+      const big = document.createElement("span");
+      big.className = "big";
+      big.textContent = c.days <= 1 ? "Within 1 day" : "Within " + c.days + " days";
+      const sub = document.createElement("span");
+      sub.className = "sub";
+      sub.textContent = "Time limit: " + c.due + (c.overdue ? " (passed, it will move to the next office)" : "");
+      when.append(big, sub);
+      box.append(when);
+    }
+    const t = (text) => (window.PortalI18n ? window.PortalI18n.t(text) : text);
+    const kind = [c.type, c.category].filter(Boolean).map(t).join(" / ");
+    if (kind) box.append(block("Type", kind));
+    if (c.department) box.append(block("Department", c.department));
+    if (c.office) box.append(block("Sent to", c.office));
+    if (c.status_text) box.append(block("Status", c.status_text));
+    const actions = document.createElement("div");
+    actions.className = "answer-actions";
+    const link = document.createElement("a");
+    link.className = "btn outline";
+    link.href = "/track";
+    link.textContent = "Track this complaint";
+    actions.append(link);
+    box.append(actions);
+  }
+
+  function showError(message) {
+    Portal.say("error", message, "err");
+  }
+
+  function newCallId() {
+    const bytes = new Uint8Array(12);
+    (window.crypto || window.msCrypto).getRandomValues(bytes);
+    return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  }
+
+  function speak(lines, lang) {
+    return new Promise((resolve) => {
+      if (!synth) { resolve(); return; }
+      synth.cancel();
+      const queue = lines.slice();
+      const next = () => {
+        if (!active || !queue.length) { resolve(); return; }
+        const utterance = new SpeechSynthesisUtterance(queue.shift());
+        utterance.lang = lang === "kn" ? "kn-IN" : info.language;
+        utterance.rate = 0.98;
+        utterance.onend = next;
+        utterance.onerror = next;
+        synth.speak(utterance);
+      };
+      setState("Assistant is speaking", "live");
+      next();
+    });
+  }
+
+  async function turn(body) {
+    try {
+      return await Portal.post("/api/voice/turn", Object.assign({ call_id: callId }, body));
+    } catch (error) {
+      if (error.status === 401) {
+        showError("Log in first, then start the call.");
+      } else {
+        showError(error.message);
+      }
+      endCall(false);
+      return null;
+    }
+  }
+
+  async function handle(reply) {
+    if (!reply || !active) return;
+    lastLang = reply.lang;
+    lastSaid = reply.say.slice();
+    $("repeatButton").hidden = false;
+    for (const line of reply.say) addLine("AI", line);
+    if (reply.complaint) showComplaint(reply.complaint);
+    await speak(reply.say, reply.lang);
+    if (!active) return;
+    if (reply.end) { endCall(false); return; }
+    listen();
+  }
+
+  async function heard(text) {
+    if (!active) return;
+    if (text) addLine("Me", text);
+    await handle(await turn({ heard: text }));
+  }
+
+  let micOk = true;   // false once the browser says it cannot listen: the caller then types, or presses Speak now
+
+  function typedMode(message) {
+    micOk = false;
+    if (message) showError(message);
+    $("micButton").hidden = !Recognition;
+    if (active) setState("Type your reply below, or press Speak now", "live");
+  }
+
+  // Stop the microphone on purpose. The browser then reports "ended", which must not be taken for the caller being silent.
+  function stopListening() {
+    if (!listening) return;
+    listening.stopped = true;
+    try { listening.abort(); } catch (error) { /* already stopped */ }
+    listening = null;
+  }
+
+  function listen() {
+    if (!active) return;
+    stopListening();
+    $("typed").focus();
+    $("micButton").hidden = true;
+    if (!Recognition || !micOk) { typedMode(""); return; }
+    const recognition = new Recognition();
+    recognition.lang = lastLang === "kn" ? "kn-IN" : info.language;
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    let got = false;
+    let failed = false;
+    const began = Date.now();
+    recognition.onresult = (event) => {
+      got = true;
+      heard(event.results[0][0].transcript);
+    };
+    recognition.onerror = (event) => {
+      // "no-speech" and "aborted" just mean nothing was said. Anything else means listening does not work here.
+      if (event.error === "no-speech" || event.error === "aborted") return;
+      failed = true;
+      const blocked = event.error === "not-allowed" || event.error === "service-not-allowed";
+      typedMode(blocked ? "The microphone is blocked. Allow it for this site, or type your reply below."
+                        : "This browser could not listen (" + event.error + "). Type your reply below.");
+    };
+    recognition.onend = () => {
+      if (listening === recognition) listening = null;
+      if (recognition.stopped || got || failed || !active) return;
+      // Ending at once with nothing heard is a failure to listen, not silence. Ending after a while is silence.
+      if (Date.now() - began < 600) { typedMode("This browser could not listen. Type your reply below."); return; }
+      heard("");
+    };
+    listening = recognition;
+    setState("Listening. Please speak", "listening");
+    try { recognition.start(); } catch (error) { typedMode("This browser could not listen. Type your reply below."); }
+  }
+
+  async function startCall() {
+    Portal.say("error", "");
+    $("log").replaceChildren();
+    callId = newCallId();
+    active = true;
+    micOk = true;
+    lastSaid = [];
+    $("repeatButton").hidden = true;
+    $("answer").replaceChildren(emptyNote);
+    $("startButton").hidden = true;
+    $("endButton").hidden = false;
+    $("typeForm").hidden = false;
+    setState("Connecting", "live");
+    await handle(await turn({ start: true, language: (window.PortalI18n && window.PortalI18n.lang) || "en" }));
+  }
+
+  function endCall(say) {
+    if (!active && !say) return;
+    active = false;
+    stopListening();
+    if (synth) synth.cancel();
+    $("startButton").hidden = false;
+    $("startButton").textContent = "Call again";
+    $("endButton").hidden = true;
+    $("typeForm").hidden = true;
+    $("micButton").hidden = true;
+    $("repeatButton").hidden = true;
+    setState("Call ended. Your complaint stays on the right.", "");
+  }
+
+  $("startButton").addEventListener("click", startCall);
+  $("endButton").addEventListener("click", () => endCall(true));
+  $("micButton").addEventListener("click", () => {
+    micOk = true;
+    Portal.say("error", "");
+    stopListening();
+    if (synth) synth.cancel();
+    listen();
+  });
+  $("repeatButton").addEventListener("click", async () => {
+    if (!active || !lastSaid.length) return;
+    stopListening();
+    await speak(lastSaid, lastLang);
+    if (active) listen();
+  });
+  $("typeForm").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const text = $("typed").value.trim();
+    $("typed").value = "";
+    if (!text || !active) return;
+    stopListening();
+    if (synth) synth.cancel();
+    heard(text);
+  });
+
+  (async () => {
+    const profile = await Portal.requireCitizen();
+    Portal.setupAccount(profile.name, Portal.citizenAccountRows(profile));
+    const result = await Portal.get("/api/voice/info");
+    if (result.ok) info = Object.assign(info, result.data);
+    const notes = [];
+    if (!Recognition) notes.push("This browser cannot listen, so type your replies below. The assistant still speaks.");
+    if (info.phone) notes.push("You can also call " + info.phone + " from any phone.");
+    $("note").textContent = notes.join(" ");
+    if (!result.ok || !result.data.web) $("startButton").disabled = true;
+  })();
+})();
+</script>
+<script src="/assets/pwa.js" defer></script>
+</body>
+</html>
